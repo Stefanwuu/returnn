@@ -105,6 +105,11 @@ class Updater(object):
             else:
                 raise NotImplementedError("not implemented for not callable dynamic_learning_rate")
 
+        self._custom_optimizer_param_groups = self.config.typed_value("custom_optimizer_param_groups", None)
+        if self._custom_optimizer_param_groups is not None:
+            print("Using the customized function to define the optimizer param groups", file=log.v2)
+            assert callable(self._custom_optimizer_param_groups), "custom_optimizer_param_groups should be callable"
+
         self.optimizer = None  # type: typing.Optional[torch.optim.Optimizer]
 
     def set_learning_rate(self, value):
@@ -204,6 +209,10 @@ class Updater(object):
         lr = lr * optimizer_opts.get("learning_rate_multiplier", 1.0)
         opt_kwargs["lr"] = lr
 
+        if self._custom_optimizer_param_groups is not None:
+            param_groups = self._custom_optimizer_param_groups(
+                network=self.network, optim_class=optim_class, opt_kwargs=opt_kwargs
+            )
         param_groups = self._get_optimizer_param_groups(optim_class, opt_kwargs)
         optimizer = optim_class(param_groups, **opt_kwargs)
         print("Optimizer: %s" % optimizer, file=log.v1)
